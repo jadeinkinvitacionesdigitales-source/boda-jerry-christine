@@ -228,6 +228,24 @@ p{margin:0 auto;max-width:34ch}
 .rsvp2 .who{font-family:var(--f-script);font-size:40px;color:var(--gold);margin-top:22px;line-height:1.1}
 .rsvp2 .small{font-size:16px;color:var(--muted);margin-top:4px}
 .rsvp-actions{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:10px}
+.rsvp-form{width:min(380px,100%);margin:22px auto 0;display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left}
+.rsvp-form label,.rsvp-form .rlab{font-family:var(--f-caps);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-top:10px}
+#rCountBox{display:flex;flex-direction:column;gap:6px}
+#rCountBox[hidden]{display:none}
+.rsvp-form input[type=text],.rsvp-form select,.rsvp-form textarea{font-family:var(--f-body);font-size:18px;color:var(--ink);background:var(--white);border:1px solid #d5dae6;border-radius:8px;padding:10px 12px;width:100%;min-width:0}
+.rsvp-form textarea{min-height:84px;resize:vertical}
+.rsvp-form input:focus-visible,.rsvp-form select:focus-visible,.rsvp-form textarea:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.ropts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ropts input{position:absolute;opacity:0;pointer-events:none}
+.rsvp-form .ropts label{margin:0;text-align:center;padding:11px 6px;border:1px solid var(--navy);border-radius:8px;color:var(--navy);font-family:var(--f-body);font-size:17px;letter-spacing:0;text-transform:none;font-weight:600;cursor:pointer}
+.ropts input:checked+label{background:var(--navy);color:var(--white)!important}
+.ropts input:focus-visible+label{outline:2px solid var(--gold);outline-offset:2px}
+.rsvp-form .pill{align-self:center;margin-top:14px;border:0;cursor:pointer}
+.rsvp-form .pill:disabled{opacity:.6;cursor:default}
+.rerr{color:#9b2c2c;font-size:16px;min-height:1em;text-align:center;margin:4px 0 0}
+.rthanks{margin:22px auto 0;padding:22px 18px;max-width:380px;border:1px solid var(--gold);border-radius:14px;background:var(--white)}
+.rthanks .script{font-size:42px;color:var(--navy)}
+.rthanks p{font-size:18px;color:var(--ink);margin:4px 0 0}
 .rsvp2 .phone{font-family:var(--f-caps);letter-spacing:.16em;font-size:12px;color:var(--muted);margin-top:16px;user-select:all}
 
 .final2{position:relative;text-align:center;padding-top:30px;background:var(--paper)}
@@ -420,10 +438,24 @@ body:not(.opened) .content{display:none}
       <div class="who" id="rsvpWho">Familia Sánchez</div>
       <p class="small"><span id="rsvpSeats">2 lugares reservados</span></p>
       <p class="small">Por favor, confirma tu asistencia dentro de las <strong>72 horas</strong> siguientes a recibir esta invitación.</p>
-      <div class="rsvp-actions">
-        <a class="pill big" id="waYes" target="_blank" rel="noopener" href="#">Confirmar aquí</a>
-        <a class="pill ghost" id="waNo" target="_blank" rel="noopener" href="#">No podré asistir</a>
-      </div>
+      <form class="rsvp-form" id="rsvpForm" novalidate>
+        <label for="rName">Nombre</label>
+        <input type="text" id="rName" autocomplete="name" placeholder="Tu nombre o el de tu familia" maxlength="120">
+        <span class="rlab" id="rAsisLab">¿Nos acompañarán?</span>
+        <div class="ropts" role="radiogroup" aria-labelledby="rAsisLab">
+          <input type="radio" name="rAsis" id="rSi" value="si" checked><label for="rSi">Sí, asistiremos</label>
+          <input type="radio" name="rAsis" id="rNo" value="no"><label for="rNo">No podremos</label>
+        </div>
+        <div id="rCountBox">
+          <label for="rCount" id="rCountLab">Número de personas</label>
+          <select id="rCount"></select>
+        </div>
+        <label for="rMsg">Mensaje para los novios (opcional)</label>
+        <textarea id="rMsg" maxlength="600" placeholder="Escribe unas palabras para Jerry y Christine…"></textarea>
+        <p class="rerr" id="rErr" role="alert"></p>
+        <button type="submit" class="pill big" id="rBtn">Confirmar asistencia</button>
+      </form>
+      <div class="rthanks" id="rThanks" hidden><div class="script">¡Gracias!</div><p id="rThanksTxt"></p></div>
       <div class="phone">WhatsApp · +507 6268-6984</div>
     </section>
 
@@ -446,27 +478,67 @@ body:not(.opened) .content{display:none}
   document.documentElement.classList.add('js');
 
   /* ===== CONFIGURACIÓN =====
-     Enlace personalizado por familia:
-       ...invitacion.html?nombre=Familia+Torres&puestos=2
+     Enlaces personalizados: se crean en panel.html (?inv=...). También funciona ?nombre=Familia+Torres&puestos=2
      MUSIC_URL: poner aquí la canción elegida (mp3). Mientras esté vacío suena una melodía suave de muestra. */
   var MUSIC_URL = "musica/cancion.mp3"; /* El Uno Para El Otro – Tercer Cielo */
   var WHATSAPP = "50762686984";
   var DEFAULT_NAME = "Familia Sánchez", DEFAULT_SEATS = 2;
 
-  var q = new URLSearchParams(location.search);
-  var name = (q.get('nombre') || '').trim() || DEFAULT_NAME;
-  var seats = parseInt(q.get('puestos'), 10);
+  /* API: URL de la app web de Google Apps Script (termina en /exec). Vacía = las respuestas se envían por WhatsApp. */
+  var API = "";
+
+  /* Enlace personal del panel: ?inv=… (id, nombre, mesa, puestos). También acepta ?nombre=Familia+Torres&puestos=2 */
+  var q = new URLSearchParams(location.search), inv = null;
+  try { var raw = q.get('inv'); if (raw) inv = JSON.parse(decodeURIComponent(escape(atob(raw.replace(/-/g, '+').replace(/_/g, '/'))))); } catch (e) { inv = null; }
+  var personal = !!(inv && inv.n) || !!(q.get('nombre') || '').trim();
+  var name = ((inv && inv.n) || q.get('nombre') || '').trim() || DEFAULT_NAME;
+  var seats = parseInt(inv ? inv.p : q.get('puestos'), 10);
   if (!(seats > 0)) seats = DEFAULT_SEATS;
+  var mesa = inv && inv.m ? String(inv.m) : '';
   var word = seats === 1 ? 'lugar' : 'lugares';
 
   function set(id, t){ var el = document.getElementById(id); if (el) el.textContent = t; }
   set('envName', name); set('seatFam', name); set('rsvpWho', name);
   set('seatN', seats); set('seatWord', seats === 1 ? 'Puesto' : 'Puestos');
-  set('rsvpSeats', seats + ' ' + word + ' reservado' + (seats === 1 ? '' : 's'));
+  set('rsvpSeats', seats + ' ' + word + ' reservado' + (seats === 1 ? '' : 's') + (mesa ? ' · Mesa ' + mesa : ''));
 
-  var base = 'https://wa.me/' + WHATSAPP + '?text=';
-  document.getElementById('waYes').href = base + encodeURIComponent('¡Hola! Somos ' + name + '. Con mucha alegría confirmamos nuestra asistencia a la boda de Jerry & Christine (' + seats + ' ' + word + '). ¡Gracias por la invitación!');
-  document.getElementById('waNo').href = base + encodeURIComponent('Hola, somos ' + name + '. Lamentablemente no podremos asistir a la boda de Jerry & Christine. Les deseamos muchas bendiciones.');
+  /* ===== Confirmación ===== */
+  (function rsvp(){
+    var form = document.getElementById('rsvpForm'); if (!form) return;
+    var nameIn = document.getElementById('rName'), sel = document.getElementById('rCount'),
+        box = document.getElementById('rCountBox'), msgIn = document.getElementById('rMsg'),
+        err = document.getElementById('rErr'), btn = document.getElementById('rBtn');
+    var max = personal ? seats : Math.max(seats, 6);
+    for (var i = 1; i <= max; i++) { var o = document.createElement('option'); o.textContent = i; sel.appendChild(o); }
+    sel.value = personal ? seats : 1;
+    if (personal) { nameIn.value = name; document.getElementById('rCountLab').textContent = 'Número de personas (máx. ' + seats + ')'; }
+    if (!API) btn.textContent = 'Confirmar por WhatsApp';
+    function asis(){ return form.querySelector('input[name=rAsis]:checked').value; }
+    form.querySelectorAll('input[name=rAsis]').forEach(function(r){ r.addEventListener('change', function(){ box.hidden = asis() !== 'si'; }); });
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var who = nameIn.value.trim().replace(/\s+/g, ' '), si = asis() === 'si', n = +sel.value, nota = msgIn.value.trim();
+      err.textContent = '';
+      if (!who) { err.textContent = 'Escribe tu nombre para confirmar.'; nameIn.focus(); return; }
+      if (!API) {
+        var t = si
+          ? '¡Hola! Somos ' + who + '. Con mucha alegría confirmamos nuestra asistencia a la boda de Jerry & Christine (' + n + ' ' + (n === 1 ? 'lugar' : 'lugares') + ').'
+          : 'Hola, somos ' + who + '. Lamentablemente no podremos asistir a la boda de Jerry & Christine. Les deseamos muchas bendiciones.';
+        if (nota) t += '\nMensaje: ' + nota;
+        window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(t), '_blank');
+        return;
+      }
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      fetch(API, { method: 'POST', body: JSON.stringify({ action: 'rsvp', id: inv && inv.i ? inv.i : '', nombre: who, asistencia: si ? 'si' : 'no', personas: si ? n : 0, mesa: mesa, mensaje: nota }) })
+        .then(function(r){ return r.json(); })
+        .then(function(r){
+          if (!r.ok) throw new Error(r.error);
+          form.hidden = true; document.getElementById('rThanks').hidden = false;
+          set('rThanksTxt', si ? who + ', su asistencia quedó confirmada para ' + n + (n === 1 ? ' persona' : ' personas') + '. ¡Los esperamos!' : who + ', recibimos su respuesta. ¡Gracias por avisarnos!');
+        })
+        .catch(function(){ err.textContent = 'No se pudo enviar. Inténtalo de nuevo en un momento.'; btn.disabled = false; btn.textContent = 'Confirmar asistencia'; });
+    });
+  })();
 
 
   /* ===== Flores (dibujadas en SVG) ===== */
