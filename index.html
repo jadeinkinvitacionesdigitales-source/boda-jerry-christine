@@ -434,7 +434,7 @@ body:not(.opened) .content{display:none}
      Enlace personalizado por familia:
        ...invitacion.html?nombre=Familia+Torres&puestos=2
      MUSIC_URL: poner aquí la canción elegida (mp3). Mientras esté vacío suena una melodía suave de muestra. */
-  var MUSIC_URL = "";
+  var MUSIC_URL = "musica/cancion.mp3"; /* El Uno Para El Otro – Tercer Cielo */
   var WHATSAPP = "50762686984";
   var DEFAULT_NAME = "Familia Sánchez", DEFAULT_SEATS = 2;
 
@@ -556,7 +556,7 @@ body:not(.opened) .content{display:none}
   function loop(){ var t = ctx.currentTime + .05; chime(notes[step % notes.length], t); if (step % 4 === 0) chime(notes[step % notes.length]/2, t); step++; }
   function start(){
     if (MUSIC_URL){
-      if (!audio){ audio = new Audio(MUSIC_URL); audio.loop = true; }
+      if (!audio){ audio = new Audio(MUSIC_URL); audio.loop = true; audio.volume = .8; }
       audio.play().catch(function(){});
     } else {
       try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); ctx.resume(); loop(); timer = setInterval(loop, 520); } catch(e){}
